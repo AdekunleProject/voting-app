@@ -1,5 +1,5 @@
 # base defines a base stage that uses the official python runtime base image
-FROM python:3.11-slim AS base
+FROM python:3.11-slim-bookworm AS base
 
 # Add curl for healthcheck
 RUN apt-get update && \
@@ -23,7 +23,13 @@ CMD ["python", "app.py"]
 FROM base AS final
 
 # Copy our code from the current folder to the working directory inside the container
-COPY . .
+RUN useradd --system --uid 10001 --no-create-home appuser
+
+COPY --chown=appuser:appuser . .
+USER appuser
+
+COPY --chown=appuser:appuser . .
+USER appuser
 
 # Make port 80 available for links and/or publish
 EXPOSE 80
