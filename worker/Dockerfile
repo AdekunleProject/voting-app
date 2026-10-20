@@ -8,7 +8,7 @@
 # docker buildx build --platform "linux/arm64/v8" .
 
 # build compiles the program for the builder's local platform
-FROM --platform=${BUILDPLATFORM} mcr.microsoft.com/dotnet/sdk:7.0 AS build
+FROM --platform=${BUILDPLATFORM} mcr.microsoft.com/dotnet/sdk:7.0-bookworm-slim@sha256:cfa3db6c98cf58da9135d0641b03db4f7eb2e43bdbf97b7294e70908abc3d99b AS build
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG BUILDPLATFORM
@@ -22,7 +22,9 @@ COPY . .
 RUN dotnet publish -c release -o /app -a $TARGETARCH --self-contained false --no-restore
 
 # app image
-FROM mcr.microsoft.com/dotnet/runtime:7.0
+FROM mcr.microsoft.com/dotnet/runtime:7.0-bookworm-slim@sha256:f24ddd398454193219bd21979029cdefb51fcda577a497eff519c84ac736c110
 WORKDIR /app
-COPY --from=build /app .
+RUN useradd --system --uid 10001 --no-create-home appuser
+COPY --from=build --chown=appuser:appuser /app .
+USER appuser
 ENTRYPOINT ["dotnet", "Worker.dll"]
