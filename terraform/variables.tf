@@ -1,7 +1,7 @@
 variable "region" {
   description = "AWS region for everything in this project"
   type        = string
-  default     = "eu-west-1"
+  default     = "eu-north-1"
 }
 
 variable "cluster_name" {
@@ -19,11 +19,11 @@ variable "kubernetes_version" {
 variable "node_instance_type" {
   description = "EC2 size for worker nodes"
   type        = string
-  default     = "t3.medium"
+  default     = "m7i-flex.large"
 }
 
 variable "node_count" {
   description = "Number of worker nodes"
   type        = number
-  default     = 2
+  default     = 1
 }

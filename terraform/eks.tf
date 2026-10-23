@@ -19,6 +19,7 @@ module "eks" {
 
   # Lets kubectl on your laptop reach the cluster API; access still needs IAM login
   endpoint_public_access = true
+  enable_irsa            = false
 
   # Makes the identity running Terraform an admin of the cluster
   enable_cluster_creator_admin_permissions = true
