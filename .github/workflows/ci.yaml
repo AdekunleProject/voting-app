@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Least privilege by default: jobs can only read the repository.
+permissions:
+  contents: read
+
+jobs:
+  smoke-test:
+    name: Smoke test (vote -> redis -> worker -> postgres)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Start the whole app
+        run: docker compose up -d --build
+
+      - name: Cast a vote and wait for it to reach the database
+        run: |
+          echo "Waiting for the vote page..."
+          for i in $(seq 1 60); do
+            if curl -fs http://localhost:8080 > /dev/null; then break; fi
+            sleep 2
+          done
+
+          echo "Casting a vote..."
+          curl -fsS -X POST -d "vote=a" http://localhost:8080/ > /dev/null
+
+          echo "Waiting for the worker to save it in PostgreSQL..."
+          for i in $(seq 1 45); do
+            n=$(docker compose exec -T db psql -U postgres -tAc "SELECT count(*) FROM votes" 2>/dev/null || echo 0)
+            echo "votes in database: ${n:-0}"
+            if [ "${n:-0}" -ge 1 ]; then
+              echo "PASS: the vote travelled vote -> redis -> worker -> postgres"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "FAIL: the vote never reached the database"
+          exit 1
+
+      - name: Show logs if the test failed
+        if: failure()
+        run: docker compose logs
+
+      - name: Clean up
+        if: always()
+        run: docker compose down -v
+
+  build-scan-push:
+    name: Build, scan, push (${{ matrix.service }})
+    needs: smoke-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [vote, result, worker]
+    permissions:
+      contents: read
+      packages: write # lets this job push to ghcr.io with the built-in token
+    env:
+      SERVICE: ${{ matrix.service }}
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Work out the image name (ghcr.io needs lowercase)
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/voting-app-${SERVICE}" >> "$GITHUB_ENV"
+
+      - name: Build the image, tagged with the commit SHA
+        run: |
+          TARGET=""
+          if [ "$SERVICE" = "vote" ]; then TARGET="--target final"; fi
+          docker build $TARGET -t "${IMAGE}:${GITHUB_SHA}" "./${SERVICE}"
+
+      - name: Scan the image with Trivy (fails on fixable CRITICAL vulnerabilities)
+        # Pinned to a full commit SHA (the v0.35.0 tag) because tags can be moved.
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          version: v0.69.3
+          image-ref: ${{ env.IMAGE }}:${{ github.sha }}
+          format: table
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Push the image (only on pushes to main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REGISTRY_USER: ${{ github.actor }}
+        run: |
+          echo "$REGISTRY_TOKEN" | docker login ghcr.io -u "$REGISTRY_USER" --password-stdin
+          docker push "${IMAGE}:${GITHUB_SHA}"
