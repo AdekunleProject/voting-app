@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+  labels:
+    app: db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+        - name: postgres
+          image: {{ .Values.db.image }}
+          env:
+            - name: POSTGRES_USER
+              value: {{ .Values.db.user }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.db.password }}
+          ports:
+            - containerPort: 5432
+              name: postgres
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: db-data
+          resources:
+            {{- toYaml .Values.db.resources | nindent 12 }}
+      volumes:
+        - name: db-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  labels:
+    app: db
+spec:
+  type: ClusterIP
+  ports:
+    - name: db-service
+      port: 5432
+      targetPort: 5432
+  selector:
+    app: db

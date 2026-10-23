@@ -1,0 +1,69 @@
+# ---------------------------------------------------------------------------
+# Images built and pushed by our GitHub Actions pipeline.
+# Final image name: <registry>/voting-app-<service>:<tag>
+# ---------------------------------------------------------------------------
+image:
+  registry: ghcr.io/adekunleproject # must be lowercase
+  # The git commit SHA that CI used as the image tag.
+  # Deliberately empty: set it at deploy time with --set image.tag=<sha>
+  tag: ""
+  pullPolicy: IfNotPresent
+
+service:
+  # ClusterIP = reachable only inside the cluster (use kubectl port-forward to look at it).
+  # LoadBalancer would create an AWS load balancer: it costs money and must be
+  # deleted (helm uninstall) before the cluster is destroyed.
+  type: ClusterIP
+
+vote:
+  replicas: 1
+  runAsUser: 10001 # the non-root user created in vote/Dockerfile
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+
+result:
+  replicas: 1
+  runAsUser: 1000 # the built-in "node" user of the Node.js image
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+
+worker:
+  replicas: 1
+  runAsUser: 10001 # the non-root user created in worker/Dockerfile
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+redis:
+  image: redis:alpine
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+
+db:
+  image: postgres:15-alpine
+  # DEMO credentials only. The application source code hardcodes these values
+  # (worker/Program.cs and result/server.js), so they cannot be changed here
+  # without changing the code. Not suitable for production.
+  user: postgres
+  password: postgres
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi

@@ -1,0 +1,10 @@
+Release {{ .Release.Name }} installed with image tag {{ .Values.image.tag }}.
+
+Look at the app from your own computer:
+  kubectl port-forward svc/vote 8080:8080
+  kubectl port-forward svc/result 8081:8081
+then open http://localhost:8080 (vote) and http://localhost:8081 (result).
+
+Useful commands:
+  helm history {{ .Release.Name }}
+  helm rollback {{ .Release.Name }} <revision>
