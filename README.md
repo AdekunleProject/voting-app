@@ -5,7 +5,7 @@ The app is unchanged in behaviour; what this repository adds is everything neede
 hardened container images, a Kubernetes cluster created with Terraform, a CI pipeline in GitHub Actions
 and a Helm chart with a rehearsed rollback.
 
-> Author: _your name_ &nbsp;|&nbsp; Region: `eu-north-1` (Stockholm) &nbsp;|&nbsp; Cloud: AWS
+> Author: Alimi Lateef Adekunle &nbsp;|&nbsp; Region: `eu-north-1` (Stockholm) &nbsp;|&nbsp; Cloud: AWS
 
 ## 1. What the app does
 
